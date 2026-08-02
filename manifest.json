@@ -1,0 +1,12 @@
+{
+    "display_name": "Glass Extension Manager",
+    "loading_order": 99,
+    "requires": [],
+    "optional": [],
+    "js": "index.js",
+    "css": "style.css",
+    "author": "MistraelSL",
+    "version": "0.1.0",
+    "license": "MIT",
+    "auto_update": true
+}
