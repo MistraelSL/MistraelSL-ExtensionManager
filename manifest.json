@@ -1,4 +1,5 @@
 {
+    "name": "MistraelSL-ExtensionManager",
     "display_name": "🐺 MistraelSL Extension Manager",
     "loading_order": 99,
     "requires": [],
@@ -8,5 +9,6 @@
     "author": "MistraelSL",
     "version": "0.1.1",
     "license": "MIT",
+    "homePage": "https://github.com/MistraelSL/MistraelSL-ExtensionManager",
     "auto_update": true
 }

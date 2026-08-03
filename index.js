@@ -1,8 +1,8 @@
 import { getRequestHeaders } from '../../../../script.js';
 
-const EXTENSION_NAME = 'Glass Extension Manager';
+const EXTENSION_NAME = 'MistraelSL Extension Manager';
 const ROOT_SELECTOR = '.extensions_info';
-const STORAGE_PREFIX = 'glass-extension-manager';
+const STORAGE_PREFIX = 'mistraelsl-extension-manager';
 const SELF_FOLDER = decodeURIComponent(new URL('.', import.meta.url).pathname)
     .split('/')
     .filter(Boolean)
