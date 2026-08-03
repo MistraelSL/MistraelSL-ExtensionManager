@@ -26,12 +26,38 @@ const APPEARANCE_THEMES = Object.freeze({
         accent: 'var(--SmartThemeQuoteColor, #9f86ff)',
         tint: 'var(--SmartThemeBlurTintColor, #171522)',
         secondary: 'rgba(92, 180, 255, 0.12)',
+        text: 'var(--SmartThemeBodyColor, #f4f1ff)',
+        muted: 'color-mix(in srgb, var(--SmartThemeBodyColor, #f4f1ff) 58%, transparent)',
+        border: 'color-mix(in srgb, var(--SmartThemeBorderColor, #ffffff) 58%, transparent)',
+        positive: '#73d9ad',
+        warning: '#f2bd72',
+        danger: '#ff7587',
     },
-    imperial: { accent: '#d7b978', tint: '#211b14', secondary: 'rgba(167, 116, 63, 0.18)' },
-    amethyst: { accent: '#ad8bff', tint: '#191426', secondary: 'rgba(116, 82, 190, 0.18)' },
-    nord: { accent: '#88c0d0', tint: '#18212b', secondary: 'rgba(94, 129, 172, 0.18)' },
-    emerald: { accent: '#70d6ad', tint: '#12211d', secondary: 'rgba(55, 143, 112, 0.18)' },
-    crimson: { accent: '#e58a98', tint: '#251418', secondary: 'rgba(166, 75, 89, 0.18)' },
+    imperial: {
+        accent: '#d7b978', tint: '#211b14', secondary: 'rgba(167, 116, 63, 0.18)',
+        text: '#f6ecd9', muted: '#b9aa93', border: 'rgba(215, 185, 120, 0.34)',
+        positive: '#7bd3a4', warning: '#e7b965', danger: '#e47a7a',
+    },
+    amethyst: {
+        accent: '#ad8bff', tint: '#191426', secondary: 'rgba(116, 82, 190, 0.18)',
+        text: '#f5f0ff', muted: '#aea2c4', border: 'rgba(173, 139, 255, 0.32)',
+        positive: '#75d6ad', warning: '#e8ba70', danger: '#ed7f91',
+    },
+    nord: {
+        accent: '#88c0d0', tint: '#18212b', secondary: 'rgba(94, 129, 172, 0.18)',
+        text: '#e5e9f0', muted: '#9aa8b9', border: '#445267',
+        positive: '#8fbc8f', warning: '#ebcb8b', danger: '#bf616a',
+    },
+    emerald: {
+        accent: '#70d6ad', tint: '#12211d', secondary: 'rgba(55, 143, 112, 0.18)',
+        text: '#e9f8f2', muted: '#98b6aa', border: 'rgba(112, 214, 173, 0.3)',
+        positive: '#70d6ad', warning: '#e3ba71', danger: '#e77d88',
+    },
+    crimson: {
+        accent: '#e58a98', tint: '#251418', secondary: 'rgba(166, 75, 89, 0.18)',
+        text: '#fff0f2', muted: '#bea0a6', border: 'rgba(229, 138, 152, 0.32)',
+        positive: '#7dd1a5', warning: '#e5b86d', danger: '#ff7185',
+    },
 });
 const SELF_FOLDER = decodeURIComponent(new URL('.', import.meta.url).pathname)
     .split('/')
@@ -104,6 +130,7 @@ const I18N = {
         appearanceHint: 'These settings affect only this manager.',
         appearanceClose: 'Close appearance settings',
         appearanceColors: 'Color scheme',
+        appearanceColorsHint: 'SillyTavern follows the app theme. Every other scheme is independent.',
         appearanceNative: 'SillyTavern',
         appearanceImperial: 'Imperial',
         appearanceAmethyst: 'Amethyst',
@@ -184,6 +211,7 @@ const I18N = {
         appearanceHint: 'Эти настройки меняют только окно менеджера.',
         appearanceClose: 'Закрыть настройки внешнего вида',
         appearanceColors: 'Цветовая схема',
+        appearanceColorsHint: 'SillyTavern наследует тему приложения. Остальные схемы полностью независимы.',
         appearanceNative: 'SillyTavern',
         appearanceImperial: 'Имперская',
         appearanceAmethyst: 'Аметист',
@@ -320,8 +348,14 @@ function applyAppearance(target, settings) {
     const selectedTheme = settings.theme === 'custom'
         ? {
             accent: settings.customColor,
-            tint: `color-mix(in srgb, ${settings.customColor} 17%, var(--SmartThemeBlurTintColor, #171522))`,
+            tint: `color-mix(in srgb, ${settings.customColor} 17%, #171522)`,
             secondary: `color-mix(in srgb, ${settings.customColor} 24%, transparent)`,
+            text: '#f4f1ff',
+            muted: '#aaa4b8',
+            border: `color-mix(in srgb, ${settings.customColor} 34%, rgba(255, 255, 255, 0.16))`,
+            positive: '#73d9ad',
+            warning: '#f2bd72',
+            danger: '#ff7587',
         }
         : APPEARANCE_THEMES[settings.theme] || APPEARANCE_THEMES.native;
     const rootFontSize = Number.parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
@@ -330,10 +364,22 @@ function applyAppearance(target, settings) {
     target.style.setProperty('--sem-accent', selectedTheme.accent);
     target.style.setProperty('--sem-tint', selectedTheme.tint);
     target.style.setProperty('--sem-secondary', selectedTheme.secondary);
+    target.style.setProperty('--sem-text', selectedTheme.text);
+    target.style.setProperty('--sem-muted', selectedTheme.muted);
+    target.style.setProperty('--sem-border', selectedTheme.border);
+    target.style.setProperty('--sem-positive', selectedTheme.positive);
+    target.style.setProperty('--sem-warning', selectedTheme.warning);
+    target.style.setProperty('--sem-danger', selectedTheme.danger);
     target.style.setProperty('--sem-glass-opacity', `${settings.glassOpacity}%`);
     target.style.setProperty('--sem-glass-strong-opacity', `${Math.min(100, settings.glassOpacity + 15)}%`);
     target.style.setProperty('--sem-surface-opacity', `${Math.min(100, settings.glassOpacity + 6)}%`);
     target.style.setProperty('--sem-font-adjust', `${fontAdjustment.toFixed(2)}px`);
+    target.dataset.semTheme = settings.theme;
+    if (settings.theme === 'native') {
+        delete target.dataset.semIndependent;
+    } else {
+        target.dataset.semIndependent = 'true';
+    }
 }
 
 function makeAppearancePanel(target, settingsButton) {
@@ -355,7 +401,12 @@ function makeAppearancePanel(target, settingsButton) {
     header.append(headerCopy, closeButton);
 
     const colorGroup = createElement('div', 'sem-appearance-group');
-    colorGroup.appendChild(createElement('span', 'sem-appearance-label', t('appearanceColors')));
+    const colorGroupCopy = createElement('span', 'sem-appearance-group-copy');
+    colorGroupCopy.append(
+        createElement('span', 'sem-appearance-label', t('appearanceColors')),
+        createElement('small', '', t('appearanceColorsHint')),
+    );
+    colorGroup.appendChild(colorGroupCopy);
     const themeGrid = createElement('div', 'sem-theme-grid');
     themeGrid.setAttribute('role', 'radiogroup');
     themeGrid.setAttribute('aria-label', t('appearanceColors'));
@@ -379,7 +430,11 @@ function makeAppearancePanel(target, settingsButton) {
 
     Object.keys(themeLabels).forEach(themeId => {
         const theme = themeId === 'custom'
-            ? { accent: settings.customColor, tint: settings.customColor }
+            ? {
+                accent: settings.customColor,
+                tint: `color-mix(in srgb, ${settings.customColor} 17%, #171522)`,
+                text: '#f4f1ff',
+            }
             : APPEARANCE_THEMES[themeId];
         const swatch = createElement('button', 'sem-theme-swatch');
         swatch.type = 'button';
@@ -387,6 +442,7 @@ function makeAppearancePanel(target, settingsButton) {
         swatch.setAttribute('role', 'radio');
         swatch.style.setProperty('--sem-swatch-accent', theme.accent);
         swatch.style.setProperty('--sem-swatch-tint', theme.tint);
+        swatch.style.setProperty('--sem-swatch-text', theme.text);
         const preview = createElement('span', 'sem-theme-preview');
         preview.append(
             createElement('span', 'sem-theme-line is-accent'),
@@ -420,7 +476,7 @@ function makeAppearancePanel(target, settingsButton) {
         settings.theme = 'custom';
         const customSwatch = themeGrid.querySelector('[data-sem-theme="custom"]');
         customSwatch?.style.setProperty('--sem-swatch-accent', settings.customColor);
-        customSwatch?.style.setProperty('--sem-swatch-tint', settings.customColor);
+        customSwatch?.style.setProperty('--sem-swatch-tint', `color-mix(in srgb, ${settings.customColor} 17%, #171522)`);
         saveAppearanceSettings(settings);
         applyAppearance(target, settings);
         refreshThemeSelection();
@@ -484,7 +540,7 @@ function makeAppearancePanel(target, settingsButton) {
         customColor.value = settings.customColor;
         const customSwatch = themeGrid.querySelector('[data-sem-theme="custom"]');
         customSwatch?.style.setProperty('--sem-swatch-accent', settings.customColor);
-        customSwatch?.style.setProperty('--sem-swatch-tint', settings.customColor);
+        customSwatch?.style.setProperty('--sem-swatch-tint', `color-mix(in srgb, ${settings.customColor} 17%, #171522)`);
         const ranges = panel.querySelectorAll('.sem-range');
         const outputs = panel.querySelectorAll('.sem-range-output');
         if (ranges[0]) ranges[0].value = String(settings.glassOpacity);

@@ -74,6 +74,140 @@
     -webkit-backdrop-filter: blur(18px);
 }
 
+/* Independent manager schemes deliberately win over custom SillyTavern themes.
+ * Native mode has no data-sem-independent attribute and keeps normal inheritance. */
+.popup.sem-dialog[data-sem-independent="true"] {
+    color-scheme: dark;
+    color: var(--sem-text) !important;
+    border-color: var(--sem-border) !important;
+    background:
+        radial-gradient(circle at 12% 0%, color-mix(in srgb, var(--sem-accent) 22%, transparent), transparent 38%),
+        radial-gradient(circle at 88% 12%, var(--sem-secondary), transparent 32%),
+        var(--sem-glass) !important;
+    text-shadow: none !important;
+}
+
+.popup.sem-dialog[data-sem-independent="true"] .popup-controls {
+    color: var(--sem-text) !important;
+    border-color: var(--sem-border) !important;
+    background: color-mix(in srgb, var(--sem-glass-strong) 92%, transparent) !important;
+}
+
+.popup.sem-dialog[data-sem-independent="true"] .popup-controls .menu_button,
+.popup.sem-dialog[data-sem-independent="true"] .sem-root .sem-native-action,
+.popup.sem-dialog[data-sem-independent="true"] .sem-root .sem-button,
+.popup.sem-dialog[data-sem-independent="true"] .sem-root .sem-filter,
+.popup.sem-dialog[data-sem-independent="true"] .sem-root .sem-theme-swatch,
+.popup.sem-dialog[data-sem-independent="true"] .sem-card .extension_actions .menu_button {
+    color: var(--sem-text) !important;
+    border-color: var(--sem-border) !important;
+    background: var(--sem-surface) !important;
+    filter: none !important;
+    text-shadow: none !important;
+}
+
+.popup.sem-dialog[data-sem-independent="true"] .sem-root .sem-search-input {
+    color: var(--sem-text) !important;
+    border-color: var(--sem-border) !important;
+    background: color-mix(in srgb, var(--sem-tint) 82%, rgba(0, 0, 0, 0.25)) !important;
+    filter: none !important;
+    text-shadow: none !important;
+}
+
+.popup.sem-dialog[data-sem-independent="true"] .sem-root .sem-search-input::placeholder {
+    color: var(--sem-muted) !important;
+    opacity: 1 !important;
+}
+
+.popup.sem-dialog[data-sem-independent="true"] .sem-root .sem-section,
+.popup.sem-dialog[data-sem-independent="true"] .sem-root .sem-appearance-panel,
+.popup.sem-dialog[data-sem-independent="true"] .sem-profile-modal {
+    color: var(--sem-text) !important;
+    border-color: var(--sem-border) !important;
+    background-color: var(--sem-glass-strong) !important;
+    text-shadow: none !important;
+}
+
+.popup.sem-dialog[data-sem-independent="true"] .sem-section-native-container .extension_block.sem-card {
+    color: var(--sem-text) !important;
+    border-color: var(--sem-border) !important;
+    background:
+        linear-gradient(110deg, rgba(255, 255, 255, 0.045), transparent 45%),
+        var(--sem-surface) !important;
+    filter: none !important;
+    text-shadow: none !important;
+}
+
+.popup.sem-dialog[data-sem-independent="true"] :is(
+    .sem-brand-copy h2,
+    .sem-metric strong,
+    .sem-section-title,
+    .sem-card .extension_name,
+    .sem-selection-count,
+    .sem-profile-row-copy strong,
+    .sem-appearance-copy strong,
+    .sem-appearance-control-copy strong,
+    .sem-appearance-label,
+    .sem-modules h3
+) {
+    color: var(--sem-text) !important;
+    text-shadow: none !important;
+}
+
+.popup.sem-dialog[data-sem-independent="true"] :is(
+    .sem-brand-copy p,
+    .sem-metric small,
+    .sem-section-hint,
+    .sem-card .extension_author,
+    .sem-card .extension_version,
+    .sem-card .extension_modules,
+    .sem-appearance-copy small,
+    .sem-appearance-control-copy small,
+    .sem-appearance-group-copy small,
+    .sem-selection-progress,
+    .sem-profile-row-copy small
+) {
+    color: var(--sem-muted) !important;
+    text-shadow: none !important;
+}
+
+.popup.sem-dialog[data-sem-independent="true"] .sem-root .sem-filter.is-active,
+.popup.sem-dialog[data-sem-independent="true"] .sem-root .sem-settings-button.is-active {
+    color: color-mix(in srgb, var(--sem-accent) 68%, var(--sem-text)) !important;
+    border-color: color-mix(in srgb, var(--sem-accent) 58%, var(--sem-border)) !important;
+    background: color-mix(in srgb, var(--sem-accent) 18%, var(--sem-surface)) !important;
+}
+
+.popup.sem-dialog[data-sem-independent="true"] .sem-root .sem-button.is-enable,
+.popup.sem-dialog[data-sem-independent="true"] .sem-status.is-enabled {
+    color: var(--sem-positive) !important;
+}
+
+.popup.sem-dialog[data-sem-independent="true"] .sem-root .sem-button.is-danger,
+.popup.sem-dialog[data-sem-independent="true"] .sem-card .extension_actions .btn_delete:hover {
+    color: var(--sem-danger) !important;
+    border-color: color-mix(in srgb, var(--sem-danger) 46%, var(--sem-border)) !important;
+}
+
+.popup.sem-dialog[data-sem-independent="true"] .sem-card .extension_actions .btn_update:not(.displayNone),
+.popup.sem-dialog[data-sem-independent="true"] .sem-status.is-missing {
+    color: var(--sem-warning) !important;
+}
+
+.popup.sem-dialog[data-sem-independent="true"] .sem-status.is-disabled {
+    color: var(--sem-muted) !important;
+}
+
+.popup.sem-dialog[data-sem-independent="true"] .sem-card .extension_toggle input[type="checkbox"] {
+    border-color: color-mix(in srgb, var(--sem-muted) 56%, transparent) !important;
+    background: color-mix(in srgb, var(--sem-tint) 82%, rgba(0, 0, 0, 0.3)) !important;
+}
+
+.popup.sem-dialog[data-sem-independent="true"] .sem-card .extension_toggle input[type="checkbox"]:checked {
+    border-color: color-mix(in srgb, var(--sem-positive) 70%, transparent) !important;
+    background: color-mix(in srgb, var(--sem-positive) 42%, rgba(0, 0, 0, 0.24)) !important;
+}
+
 .sem-root {
     min-height: 100%;
     padding: 22px;
@@ -212,7 +346,8 @@
 }
 
 .sem-appearance-copy,
-.sem-appearance-control-copy {
+.sem-appearance-control-copy,
+.sem-appearance-group-copy {
     display: flex;
     min-width: 0;
     flex: 1;
@@ -227,7 +362,8 @@
 }
 
 .sem-appearance-copy small,
-.sem-appearance-control-copy small {
+.sem-appearance-control-copy small,
+.sem-appearance-group-copy small {
     color: var(--sem-muted);
     line-height: 1.35;
 }
@@ -282,7 +418,7 @@
     width: 70%;
     height: 3px;
     border-radius: 999px;
-    background: color-mix(in srgb, var(--sem-text) 62%, transparent);
+    background: color-mix(in srgb, var(--sem-swatch-text, var(--sem-text)) 72%, transparent);
 }
 
 .sem-theme-line.is-accent {
@@ -296,6 +432,7 @@
 
 .sem-theme-name {
     overflow: hidden;
+    color: var(--sem-swatch-text, var(--sem-text));
     text-overflow: ellipsis;
     white-space: nowrap;
 }
