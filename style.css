@@ -251,6 +251,14 @@
     margin: 0;
 }
 
+.sem-native-bulk-hidden {
+    display: none !important;
+}
+
+.sem-native-bulk-header-hidden {
+    display: none !important;
+}
+
 .sem-root .sem-native-action,
 .sem-root .sem-button {
     display: inline-flex;
@@ -294,15 +302,24 @@
 }
 
 .sem-filter-bar {
-    display: flex;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
     gap: 7px;
     margin-bottom: 14px;
+    overflow: visible;
+}
+
+.sem-filter-options {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 7px;
     overflow-x: auto;
     scrollbar-width: none;
 }
 
-.sem-filter-bar::-webkit-scrollbar {
+.sem-filter-options::-webkit-scrollbar {
     display: none;
 }
 
@@ -334,10 +351,16 @@
 }
 
 .sem-filter.sem-quick-select {
-    margin-left: auto;
+    flex: 0 0 auto;
     color: color-mix(in srgb, var(--sem-accent) 45%, var(--sem-text));
     border-color: var(--sem-border);
     background: rgba(255, 255, 255, 0.035);
+}
+
+.sem-filter.sem-quick-select.is-active {
+    color: white;
+    border-color: color-mix(in srgb, var(--sem-accent) 62%, transparent);
+    background: color-mix(in srgb, var(--sem-accent) 28%, transparent);
 }
 
 .sem-selection-bar {
@@ -551,7 +574,7 @@
 }
 
 .sem-section-external .extension_block.sem-card {
-    grid-template-columns: auto auto auto minmax(0, 1fr) auto;
+    grid-template-columns: auto auto minmax(0, 1fr) auto;
 }
 
 .sem-section-native-container .extension_block.sem-card:hover {
@@ -574,8 +597,59 @@
 
 .sem-card .extension_toggle {
     display: grid;
-    width: 34px;
+    width: 42px;
     place-items: center;
+}
+
+.sem-card .extension_toggle input[type="checkbox"] {
+    position: relative;
+    width: 38px;
+    min-width: 38px;
+    height: 22px;
+    margin: 0;
+    appearance: none;
+    -webkit-appearance: none;
+    border: 1px solid color-mix(in srgb, var(--sem-muted) 55%, transparent);
+    border-radius: 999px;
+    outline: none;
+    background: rgba(0, 0, 0, 0.28);
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3);
+    cursor: pointer;
+    transition: border-color 150ms ease, background 150ms ease, box-shadow 150ms ease;
+}
+
+.sem-card .extension_toggle input[type="checkbox"]::before {
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--sem-text) 72%, #8b8991);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.36);
+    transition: transform 150ms ease, background 150ms ease;
+}
+
+.sem-card .extension_toggle input[type="checkbox"]:checked {
+    border-color: color-mix(in srgb, var(--sem-positive) 68%, transparent);
+    background: color-mix(in srgb, var(--sem-positive) 42%, rgba(0, 0, 0, 0.2));
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--sem-positive) 9%, transparent);
+}
+
+.sem-card .extension_toggle input[type="checkbox"]:checked::before {
+    transform: translateX(16px);
+    background: #f7fff9;
+}
+
+.sem-card .extension_toggle input[type="checkbox"]:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--sem-accent) 80%, white);
+    outline-offset: 2px;
+}
+
+.sem-card .extension_toggle input[type="checkbox"]:disabled {
+    opacity: 0.38;
+    cursor: not-allowed;
 }
 
 .sem-card .extension_icon {
@@ -702,11 +776,19 @@
 
 .sem-select-wrap {
     position: relative;
-    display: grid;
-    width: 24px;
+    display: none;
+    width: 42px;
     height: 34px;
     place-items: center;
     cursor: pointer;
+}
+
+.sem-root.is-selection-mode .sem-select-wrap {
+    display: grid;
+}
+
+.sem-root.is-selection-mode .sem-card .extension_toggle {
+    display: none;
 }
 
 .sem-select {
@@ -720,10 +802,10 @@
 .sem-select-visual {
     position: relative;
     display: block;
-    width: 17px;
-    height: 17px;
+    width: 22px;
+    height: 22px;
     border: 1px solid color-mix(in srgb, var(--sem-muted) 72%, transparent);
-    border-radius: 6px;
+    border-radius: 50%;
     background: rgba(0, 0, 0, 0.16);
     transition: border-color 130ms ease, background 130ms ease, transform 130ms ease;
 }
@@ -742,10 +824,10 @@
 .sem-select:checked + .sem-select-visual::after {
     content: '';
     position: absolute;
-    top: 3px;
-    left: 5px;
-    width: 4px;
-    height: 7px;
+    top: 4px;
+    left: 7px;
+    width: 5px;
+    height: 9px;
     transform: rotate(45deg);
     border-right: 2px solid white;
     border-bottom: 2px solid white;
@@ -845,12 +927,20 @@
     }
 
     .sem-native-toolbar {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
         width: 100%;
-        justify-content: stretch;
+        align-items: stretch;
     }
 
     .sem-native-toolbar .sem-native-action {
-        flex: 1;
+        width: 100%;
+        min-width: 0;
+        min-height: 64px;
+        padding: 9px 10px;
+        line-height: 1.25;
+        text-align: center;
+        white-space: normal;
     }
 
     .sem-selection-bar {
@@ -894,15 +984,12 @@
 
     .sem-native-toolbar .sem-native-action:last-child {
         grid-column: 1 / -1;
+        width: 100%;
     }
 
     .sem-section-header {
-        align-items: stretch;
-        flex-direction: column;
-    }
-
-    .sem-section-actions {
-        padding: 0 4px 4px 54px;
+        align-items: center;
+        flex-direction: row;
     }
 
     .sem-section-native-container .extension_block.sem-card {
@@ -911,7 +998,7 @@
     }
 
     .sem-section-external .extension_block.sem-card {
-        grid-template-columns: auto auto auto minmax(0, 1fr);
+        grid-template-columns: auto auto minmax(0, 1fr);
     }
 
     .sem-card .extension_actions {

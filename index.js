@@ -27,8 +27,11 @@ const I18N = {
         collapse: 'Collapse section',
         expand: 'Expand section',
         selected: '{count} selected',
+        selectionSummary: 'Bulk selection · {count} selected',
+        selectForBulk: 'Select for a bulk action',
+        selectMode: 'Select',
         selectVisible: 'Select visible',
-        clear: 'Clear',
+        cancelSelection: 'Cancel',
         enableSelected: 'Enable',
         disableSelected: 'Disable',
         deleteSelected: 'Delete',
@@ -64,8 +67,11 @@ const I18N = {
         collapse: 'Свернуть раздел',
         expand: 'Развернуть раздел',
         selected: 'Выбрано: {count}',
+        selectionSummary: 'Массовый выбор · выбрано: {count}',
+        selectForBulk: 'Выбрать для массового действия',
+        selectMode: 'Выбрать',
         selectVisible: 'Выбрать видимые',
-        clear: 'Снять выбор',
+        cancelSelection: 'Отмена',
         enableSelected: 'Включить',
         disableSelected: 'Выключить',
         deleteSelected: 'Удалить',
@@ -206,10 +212,10 @@ function decorateBlock(block, allowSelection) {
     if (!allowSelection || block.querySelector(':scope > .sem-select-wrap')) return;
 
     const wrapper = createElement('label', 'sem-select-wrap');
-    wrapper.title = t('selected', { count: 1 });
+    wrapper.title = t('selectForBulk');
     const checkbox = createElement('input', 'sem-select');
     checkbox.type = 'checkbox';
-    checkbox.setAttribute('aria-label', `${t('selected', { count: 1 })}: ${getDisplayName(block)}`);
+    checkbox.setAttribute('aria-label', `${t('selectForBulk')}: ${getDisplayName(block)}`);
 
     const folderName = normalizeExtensionName(block.dataset.name);
     if (folderName.localeCompare(SELF_FOLDER, undefined, { sensitivity: 'accent' }) === 0) {
@@ -339,6 +345,8 @@ function enhanceManager(root) {
 
     const externalHeader = externalContainer.querySelector(':scope > div:first-child');
     const externalActions = externalHeader?.querySelector('.third_party_toolbar') || null;
+    externalActions?.classList.add('sem-native-bulk-hidden');
+    if (externalActions) externalHeader?.classList.add('sem-native-bulk-header-hidden');
     const builtInHeading = builtInContainer.querySelector(':scope > h3');
     const externalHeading = externalHeader?.querySelector('h3');
     builtInHeading?.remove();
@@ -384,26 +392,27 @@ function enhanceManager(root) {
     if (nativeToolbar) commandBar.appendChild(nativeToolbar);
 
     const filterBar = createElement('div', 'sem-filter-bar');
-    const quickSelectButton = makeFilterButton('select-visible', 'fa-square-check', t('selectVisible'));
+    const filterOptions = createElement('div', 'sem-filter-options');
+    const quickSelectButton = makeFilterButton('select-mode', 'fa-object-group', t('selectMode'));
     quickSelectButton.classList.add('sem-quick-select');
-    filterBar.append(
+    filterOptions.append(
         makeFilterButton('all', '', t('all'), true),
         makeFilterButton('enabled', 'fa-circle-check', t('enabled')),
         makeFilterButton('disabled', 'fa-circle-pause', t('disabled')),
         makeFilterButton('updates', 'fa-cloud-arrow-down', t('updateAvailable')),
-        quickSelectButton,
     );
+    filterBar.append(filterOptions, quickSelectButton);
 
     const selectionBar = createElement('div', 'sem-selection-bar');
     selectionBar.hidden = true;
-    const selectionCount = createElement('strong', 'sem-selection-count', t('selected', { count: 0 }));
+    const selectionCount = createElement('strong', 'sem-selection-count', t('selectionSummary', { count: 0 }));
     const selectVisibleButton = createIconButton('fa-check-double', t('selectVisible'));
-    const clearButton = createIconButton('fa-xmark', t('clear'));
+    const cancelButton = createIconButton('fa-xmark', t('cancelSelection'));
     const enableButton = createIconButton('fa-power-off', t('enableSelected'), 'is-enable');
     const disableButton = createIconButton('fa-circle-pause', t('disableSelected'));
     const deleteButton = createIconButton('fa-trash-can', t('deleteSelected'), 'is-danger');
     const progress = createElement('span', 'sem-selection-progress');
-    selectionBar.append(selectionCount, progress, selectVisibleButton, clearButton, enableButton, disableButton, deleteButton);
+    selectionBar.append(selectionCount, progress, selectVisibleButton, cancelButton, enableButton, disableButton, deleteButton);
 
     const builtInSection = makeSection({
         key: 'builtin',
@@ -420,7 +429,6 @@ function enhanceManager(root) {
         container: externalContainer,
         count: externalBlocks.length,
         defaultExpanded: true,
-        headerActions: externalActions,
     });
 
     const modulesElement = [...root.children].find(child => {
@@ -439,6 +447,7 @@ function enhanceManager(root) {
     if (modulesElement) root.appendChild(modulesElement);
 
     let activeFilter = 'all';
+    let selectionMode = false;
     const noResults = createElement('div', 'sem-empty', t('noResults'));
     noResults.hidden = true;
     root.insertBefore(noResults, modulesElement || null);
@@ -447,9 +456,30 @@ function enhanceManager(root) {
 
     const updateSelection = () => {
         const selected = getSelectedBlocks();
-        selectionBar.hidden = selected.length === 0;
-        selectionCount.textContent = t('selected', { count: selected.length });
+        selectionBar.hidden = !selectionMode;
+        selectionCount.textContent = t('selectionSummary', { count: selected.length });
         root.classList.toggle('has-selection', selected.length > 0);
+        if (!selectionBar.classList.contains('is-busy')) {
+            enableButton.disabled = selected.length === 0;
+            disableButton.disabled = selected.length === 0;
+            deleteButton.disabled = selected.length === 0;
+        }
+    };
+
+    const setSelectionMode = enabled => {
+        selectionMode = Boolean(enabled);
+        root.classList.toggle('is-selection-mode', selectionMode);
+        quickSelectButton.classList.toggle('is-active', selectionMode);
+        quickSelectButton.setAttribute('aria-pressed', String(selectionMode));
+
+        if (!selectionMode) {
+            externalBlocks.forEach(block => {
+                const checkbox = block.querySelector('.sem-select');
+                if (checkbox) checkbox.checked = false;
+            });
+        }
+
+        updateSelection();
     };
 
     const updateMetrics = () => {
@@ -484,15 +514,11 @@ function enhanceManager(root) {
         const button = event.target.closest('.sem-filter');
         if (!button) return;
         if (button === quickSelectButton) {
-            externalBlocks.forEach(block => {
-                const checkbox = block.querySelector('.sem-select');
-                if (!block.hidden && checkbox && !checkbox.disabled) checkbox.checked = true;
-            });
-            updateSelection();
+            setSelectionMode(!selectionMode);
             return;
         }
         activeFilter = button.dataset.filter || 'all';
-        filterBar.querySelectorAll('.sem-filter').forEach(filter => {
+        filterOptions.querySelectorAll('.sem-filter').forEach(filter => {
             const active = filter === button;
             filter.classList.toggle('is-active', active);
             filter.setAttribute('aria-pressed', String(active));
@@ -519,13 +545,7 @@ function enhanceManager(root) {
         });
         updateSelection();
     });
-    clearButton.addEventListener('click', () => {
-        externalBlocks.forEach(block => {
-            const checkbox = block.querySelector('.sem-select');
-            if (checkbox) checkbox.checked = false;
-        });
-        updateSelection();
-    });
+    cancelButton.addEventListener('click', () => setSelectionMode(false));
 
     const toggleSelected = enable => {
         getSelectedBlocks().forEach(block => {
