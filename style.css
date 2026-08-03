@@ -35,6 +35,7 @@
         inset 0 1px 0 rgba(255, 255, 255, 0.1);
     backdrop-filter: blur(28px) saturate(135%);
     -webkit-backdrop-filter: blur(28px) saturate(135%);
+    position: relative;
 }
 
 .popup.sem-dialog::backdrop {
@@ -303,11 +304,268 @@
 
 .sem-filter-bar {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr) auto auto;
     align-items: center;
     gap: 7px;
     margin-bottom: 14px;
     overflow: visible;
+}
+
+.sem-profile-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.sem-root .sem-profile-button {
+    min-height: 34px;
+    padding: 6px 10px;
+    color: color-mix(in srgb, var(--sem-accent) 42%, var(--sem-text));
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.035);
+}
+
+.sem-profile-input[hidden] {
+    display: none;
+}
+
+.sem-profile-overlay {
+    position: absolute;
+    z-index: 100;
+    inset: 0;
+    display: grid;
+    padding: 20px;
+    place-items: center;
+    background: rgba(5, 5, 10, 0.64);
+    backdrop-filter: blur(16px) saturate(90%);
+    -webkit-backdrop-filter: blur(16px) saturate(90%);
+    animation: sem-profile-overlay-in 160ms ease-out;
+}
+
+.sem-profile-modal {
+    display: grid;
+    width: min(760px, 100%);
+    max-height: min(720px, calc(100% - 8px));
+    overflow: hidden;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    color: var(--sem-text);
+    border: 1px solid color-mix(in srgb, var(--sem-accent) 38%, var(--sem-border));
+    border-radius: 22px;
+    background:
+        radial-gradient(circle at 10% 0%, color-mix(in srgb, var(--sem-accent) 18%, transparent), transparent 40%),
+        var(--sem-glass-strong);
+    box-shadow: 0 28px 80px rgba(0, 0, 0, 0.58), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.sem-profile-modal-header {
+    display: flex;
+    padding: 20px 20px 16px;
+    align-items: flex-start;
+    gap: 14px;
+    border-bottom: 1px solid var(--sem-border);
+}
+
+.sem-profile-modal-copy {
+    min-width: 0;
+    flex: 1;
+}
+
+.sem-profile-modal-copy h3 {
+    margin: 0;
+    font-size: 1.12rem;
+    font-weight: 720;
+}
+
+.sem-profile-modal-copy p {
+    margin: 7px 0 0;
+    color: var(--sem-muted);
+    font-size: 0.78rem;
+    line-height: 1.45;
+}
+
+.sem-profile-modal .sem-button {
+    display: inline-flex;
+    min-height: 40px;
+    margin: 0;
+    padding: 8px 12px;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    color: var(--sem-text);
+    border: 1px solid var(--sem-border);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.055);
+    cursor: pointer;
+}
+
+.sem-profile-modal .sem-button:hover {
+    border-color: color-mix(in srgb, var(--sem-accent) 55%, transparent);
+    background: color-mix(in srgb, var(--sem-accent) 13%, rgba(255, 255, 255, 0.05));
+}
+
+.sem-profile-modal .sem-button:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--sem-accent) 80%, white);
+    outline-offset: 2px;
+}
+
+.sem-profile-modal .sem-button:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.sem-profile-modal .sem-button.is-enable {
+    color: var(--sem-positive);
+    border-color: color-mix(in srgb, var(--sem-positive) 38%, transparent);
+    background: color-mix(in srgb, var(--sem-positive) 10%, transparent);
+}
+
+.sem-profile-close {
+    flex: 0 0 40px;
+    width: 40px;
+    padding: 0 !important;
+}
+
+.sem-profile-list {
+    min-height: 120px;
+    padding: 10px 12px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+}
+
+.sem-profile-row {
+    display: grid;
+    min-height: 58px;
+    margin: 6px 0;
+    padding: 9px 11px;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    border: 1px solid color-mix(in srgb, var(--sem-border) 82%, transparent);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.035);
+    cursor: pointer;
+}
+
+.sem-profile-row:hover {
+    border-color: color-mix(in srgb, var(--sem-accent) 38%, var(--sem-border));
+    background: color-mix(in srgb, var(--sem-accent) 7%, rgba(255, 255, 255, 0.035));
+}
+
+.sem-profile-row.is-unavailable {
+    opacity: 0.55;
+    cursor: default;
+}
+
+.sem-profile-check {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.sem-profile-check-visual {
+    position: relative;
+    display: block;
+    width: 22px;
+    height: 22px;
+    border: 1px solid color-mix(in srgb, var(--sem-muted) 72%, transparent);
+    border-radius: 7px;
+    background: rgba(0, 0, 0, 0.18);
+}
+
+.sem-profile-check:focus-visible + .sem-profile-check-visual {
+    outline: 2px solid var(--sem-accent);
+    outline-offset: 2px;
+}
+
+.sem-profile-check:checked + .sem-profile-check-visual {
+    border-color: var(--sem-accent);
+    background: color-mix(in srgb, var(--sem-accent) 72%, #171421);
+}
+
+.sem-profile-check:checked + .sem-profile-check-visual::after {
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: 7px;
+    width: 5px;
+    height: 10px;
+    transform: rotate(45deg);
+    border-right: 2px solid white;
+    border-bottom: 2px solid white;
+}
+
+.sem-profile-check:disabled + .sem-profile-check-visual {
+    opacity: 0.35;
+}
+
+.sem-profile-row-copy {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.sem-profile-row-copy strong,
+.sem-profile-row-copy small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sem-profile-row-copy strong {
+    font-size: 0.86rem;
+}
+
+.sem-profile-row-copy small {
+    color: var(--sem-muted);
+    font-size: 0.7rem;
+}
+
+.sem-profile-state {
+    display: inline-flex;
+    min-height: 24px;
+    padding: 4px 8px;
+    align-items: center;
+    color: var(--sem-muted);
+    font-size: 0.66rem;
+    font-weight: 650;
+    border: 1px solid var(--sem-border);
+    border-radius: 999px;
+    white-space: nowrap;
+}
+
+.sem-profile-state.is-ready {
+    color: var(--sem-positive);
+    border-color: color-mix(in srgb, var(--sem-positive) 34%, transparent);
+    background: color-mix(in srgb, var(--sem-positive) 8%, transparent);
+}
+
+.sem-profile-state.is-installed {
+    color: color-mix(in srgb, var(--sem-accent) 48%, white);
+}
+
+.sem-profile-state.is-unavailable {
+    color: var(--sem-warning);
+}
+
+.sem-profile-modal-footer {
+    display: flex;
+    min-height: 64px;
+    padding: 11px 14px;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    border-top: 1px solid var(--sem-border);
+    background: rgba(0, 0, 0, 0.1);
+}
+
+.sem-profile-selected {
+    margin-right: auto;
+    color: var(--sem-muted);
+    font-size: 0.78rem;
 }
 
 .sem-filter-options {
@@ -900,6 +1158,11 @@
     to { opacity: 1; transform: translateY(0); }
 }
 
+@keyframes sem-profile-overlay-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
 @keyframes sem-shake {
     0%, 100% { transform: translateX(0); }
     30% { transform: translateX(-4px); }
@@ -985,6 +1248,58 @@
     .sem-native-toolbar .sem-native-action:last-child {
         grid-column: 1 / -1;
         width: 100%;
+    }
+
+    .sem-filter-bar {
+        grid-template-columns: minmax(0, 1fr) auto;
+    }
+
+    .sem-filter-options {
+        grid-column: 1 / -1;
+    }
+
+    .sem-profile-actions {
+        min-width: 0;
+    }
+
+    .sem-root .sem-profile-button {
+        min-width: 0;
+        padding-inline: 9px;
+    }
+
+    .sem-profile-overlay {
+        padding: 8px;
+    }
+
+    .sem-profile-modal {
+        max-height: calc(100% - 4px);
+        border-radius: 17px;
+    }
+
+    .sem-profile-modal-header {
+        padding: 15px 14px 12px;
+    }
+
+    .sem-profile-list {
+        padding: 7px;
+    }
+
+    .sem-profile-row {
+        padding: 9px;
+        grid-template-columns: auto minmax(0, 1fr);
+    }
+
+    .sem-profile-state {
+        grid-column: 2;
+        width: max-content;
+    }
+
+    .sem-profile-modal-footer {
+        flex-wrap: wrap;
+    }
+
+    .sem-profile-selected {
+        flex-basis: 100%;
     }
 
     .sem-section-header {
