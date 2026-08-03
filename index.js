@@ -14,6 +14,25 @@ const PROFILE_FORMAT = 'mistraelsl-extension-profile';
 const PROFILE_VERSION = 1;
 const MAX_PROFILE_BYTES = 2 * 1024 * 1024;
 const MAX_PROFILE_EXTENSIONS = 500;
+const APPEARANCE_STORAGE_KEY = `${STORAGE_PREFIX}:appearance`;
+const APPEARANCE_DEFAULTS = Object.freeze({
+    theme: 'native',
+    customColor: '#9f86ff',
+    glassOpacity: 74,
+    fontScale: 100,
+});
+const APPEARANCE_THEMES = Object.freeze({
+    native: {
+        accent: 'var(--SmartThemeQuoteColor, #9f86ff)',
+        tint: 'var(--SmartThemeBlurTintColor, #171522)',
+        secondary: 'rgba(92, 180, 255, 0.12)',
+    },
+    imperial: { accent: '#d7b978', tint: '#211b14', secondary: 'rgba(167, 116, 63, 0.18)' },
+    amethyst: { accent: '#ad8bff', tint: '#191426', secondary: 'rgba(116, 82, 190, 0.18)' },
+    nord: { accent: '#88c0d0', tint: '#18212b', secondary: 'rgba(94, 129, 172, 0.18)' },
+    emerald: { accent: '#70d6ad', tint: '#12211d', secondary: 'rgba(55, 143, 112, 0.18)' },
+    crimson: { accent: '#e58a98', tint: '#251418', secondary: 'rgba(166, 75, 89, 0.18)' },
+});
 const SELF_FOLDER = decodeURIComponent(new URL('.', import.meta.url).pathname)
     .split('/')
     .filter(Boolean)
@@ -80,6 +99,24 @@ const I18N = {
         profileTooLarge: 'The backup file is too large.',
         profileNothingSelected: 'Select at least one extension to restore.',
         profileReadFailed: 'Could not read the extension backup.',
+        appearanceOpen: 'Manager appearance',
+        appearanceTitle: 'Appearance',
+        appearanceHint: 'These settings affect only this manager.',
+        appearanceClose: 'Close appearance settings',
+        appearanceColors: 'Color scheme',
+        appearanceNative: 'SillyTavern',
+        appearanceImperial: 'Imperial',
+        appearanceAmethyst: 'Amethyst',
+        appearanceNord: 'Nord',
+        appearanceEmerald: 'Emerald',
+        appearanceCrimson: 'Crimson',
+        appearanceCustom: 'Custom',
+        appearanceCustomColor: 'Custom accent color',
+        appearanceGlass: 'Glass visibility',
+        appearanceGlassHint: 'Higher values make the panel less transparent.',
+        appearanceFont: 'Text size',
+        appearanceFontHint: 'Relative to the font size selected in SillyTavern.',
+        appearanceReset: 'Reset appearance',
         modules: 'Extras API modules',
     },
     ru: {
@@ -142,6 +179,24 @@ const I18N = {
         profileTooLarge: 'Файл резервной копии слишком большой.',
         profileNothingSelected: 'Выберите хотя бы одно расширение.',
         profileReadFailed: 'Не удалось прочитать резервную копию расширений.',
+        appearanceOpen: 'Внешний вид менеджера',
+        appearanceTitle: 'Внешний вид',
+        appearanceHint: 'Эти настройки меняют только окно менеджера.',
+        appearanceClose: 'Закрыть настройки внешнего вида',
+        appearanceColors: 'Цветовая схема',
+        appearanceNative: 'SillyTavern',
+        appearanceImperial: 'Имперская',
+        appearanceAmethyst: 'Аметист',
+        appearanceNord: 'Нордическая',
+        appearanceEmerald: 'Изумруд',
+        appearanceCrimson: 'Багровая',
+        appearanceCustom: 'Свой цвет',
+        appearanceCustomColor: 'Свой цвет акцента',
+        appearanceGlass: 'Видимость стекла',
+        appearanceGlassHint: 'Чем выше значение, тем плотнее и заметнее панель.',
+        appearanceFont: 'Размер текста',
+        appearanceFontHint: 'Относительно размера шрифта, выбранного в SillyTavern.',
+        appearanceReset: 'Сбросить оформление',
         modules: 'Модули Extras API',
     },
 };
@@ -149,14 +204,15 @@ const I18N = {
 function getLanguage() {
     const context = globalThis.SillyTavern?.getContext?.();
     const candidates = [
-        document.documentElement.lang,
         context?.getCurrentLocale?.(),
         context?.locale,
         context?.language,
+        document.documentElement.lang,
         navigator.language,
     ];
+    const selectedLanguage = candidates.find(value => String(value || '').trim());
 
-    return candidates.some(value => String(value || '').toLowerCase().startsWith('ru')) ? 'ru' : 'en';
+    return String(selectedLanguage || '').toLowerCase().startsWith('ru') ? 'ru' : 'en';
 }
 
 function t(key, values = {}) {
@@ -225,6 +281,239 @@ function getStorageBoolean(key, fallback) {
 
 function setStorageBoolean(key, value) {
     localStorage.setItem(`${STORAGE_PREFIX}:${key}`, String(Boolean(value)));
+}
+
+function clampNumber(value, minimum, maximum, fallback) {
+    const number = Number(value);
+    return Number.isFinite(number) ? Math.min(maximum, Math.max(minimum, number)) : fallback;
+}
+
+function normalizeHexColor(value, fallback = APPEARANCE_DEFAULTS.customColor) {
+    const color = String(value || '').trim();
+    return /^#[0-9a-f]{6}$/i.test(color) ? color.toLowerCase() : fallback;
+}
+
+function getAppearanceSettings() {
+    let stored = {};
+    try {
+        stored = JSON.parse(localStorage.getItem(APPEARANCE_STORAGE_KEY) || '{}');
+    } catch {
+        stored = {};
+    }
+
+    const validThemes = [...Object.keys(APPEARANCE_THEMES), 'custom'];
+    return {
+        theme: validThemes.includes(stored.theme) ? stored.theme : APPEARANCE_DEFAULTS.theme,
+        customColor: normalizeHexColor(stored.customColor),
+        glassOpacity: clampNumber(stored.glassOpacity, 50, 96, APPEARANCE_DEFAULTS.glassOpacity),
+        fontScale: clampNumber(stored.fontScale, 85, 125, APPEARANCE_DEFAULTS.fontScale),
+    };
+}
+
+function saveAppearanceSettings(settings) {
+    localStorage.setItem(APPEARANCE_STORAGE_KEY, JSON.stringify(settings));
+}
+
+function applyAppearance(target, settings) {
+    if (!(target instanceof HTMLElement)) return;
+
+    const selectedTheme = settings.theme === 'custom'
+        ? {
+            accent: settings.customColor,
+            tint: `color-mix(in srgb, ${settings.customColor} 17%, var(--SmartThemeBlurTintColor, #171522))`,
+            secondary: `color-mix(in srgb, ${settings.customColor} 24%, transparent)`,
+        }
+        : APPEARANCE_THEMES[settings.theme] || APPEARANCE_THEMES.native;
+    const rootFontSize = Number.parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+    const fontAdjustment = rootFontSize * ((settings.fontScale - 100) / 100);
+
+    target.style.setProperty('--sem-accent', selectedTheme.accent);
+    target.style.setProperty('--sem-tint', selectedTheme.tint);
+    target.style.setProperty('--sem-secondary', selectedTheme.secondary);
+    target.style.setProperty('--sem-glass-opacity', `${settings.glassOpacity}%`);
+    target.style.setProperty('--sem-glass-strong-opacity', `${Math.min(100, settings.glassOpacity + 15)}%`);
+    target.style.setProperty('--sem-surface-opacity', `${Math.min(100, settings.glassOpacity + 6)}%`);
+    target.style.setProperty('--sem-font-adjust', `${fontAdjustment.toFixed(2)}px`);
+}
+
+function makeAppearancePanel(target, settingsButton) {
+    const settings = getAppearanceSettings();
+    applyAppearance(target, settings);
+
+    const panel = createElement('section', 'sem-appearance-panel');
+    panel.hidden = true;
+    panel.setAttribute('aria-label', t('appearanceTitle'));
+
+    const header = createElement('header', 'sem-appearance-header');
+    const headerCopy = createElement('div', 'sem-appearance-copy');
+    headerCopy.append(
+        createElement('strong', '', t('appearanceTitle')),
+        createElement('small', '', t('appearanceHint')),
+    );
+    const closeButton = createIconButton('fa-xmark', t('appearanceClose'), 'sem-appearance-close');
+    closeButton.querySelector('span')?.remove();
+    header.append(headerCopy, closeButton);
+
+    const colorGroup = createElement('div', 'sem-appearance-group');
+    colorGroup.appendChild(createElement('span', 'sem-appearance-label', t('appearanceColors')));
+    const themeGrid = createElement('div', 'sem-theme-grid');
+    themeGrid.setAttribute('role', 'radiogroup');
+    themeGrid.setAttribute('aria-label', t('appearanceColors'));
+    const themeLabels = {
+        native: 'appearanceNative',
+        imperial: 'appearanceImperial',
+        amethyst: 'appearanceAmethyst',
+        nord: 'appearanceNord',
+        emerald: 'appearanceEmerald',
+        crimson: 'appearanceCrimson',
+        custom: 'appearanceCustom',
+    };
+
+    const refreshThemeSelection = () => {
+        themeGrid.querySelectorAll('[data-sem-theme]').forEach(button => {
+            const active = button.dataset.semTheme === settings.theme;
+            button.classList.toggle('is-active', active);
+            button.setAttribute('aria-checked', String(active));
+        });
+    };
+
+    Object.keys(themeLabels).forEach(themeId => {
+        const theme = themeId === 'custom'
+            ? { accent: settings.customColor, tint: settings.customColor }
+            : APPEARANCE_THEMES[themeId];
+        const swatch = createElement('button', 'sem-theme-swatch');
+        swatch.type = 'button';
+        swatch.dataset.semTheme = themeId;
+        swatch.setAttribute('role', 'radio');
+        swatch.style.setProperty('--sem-swatch-accent', theme.accent);
+        swatch.style.setProperty('--sem-swatch-tint', theme.tint);
+        const preview = createElement('span', 'sem-theme-preview');
+        preview.append(
+            createElement('span', 'sem-theme-line is-accent'),
+            createElement('span', 'sem-theme-line'),
+            createElement('span', 'sem-theme-line is-short'),
+        );
+        swatch.append(
+            preview,
+            createElement('span', 'sem-theme-name', t(themeLabels[themeId])),
+            createElement('i', 'fa-solid fa-circle-check sem-theme-check'),
+        );
+        swatch.addEventListener('click', () => {
+            settings.theme = themeId;
+            saveAppearanceSettings(settings);
+            applyAppearance(target, settings);
+            refreshThemeSelection();
+        });
+        themeGrid.appendChild(swatch);
+    });
+    colorGroup.appendChild(themeGrid);
+
+    const customRow = createElement('label', 'sem-appearance-control sem-color-control');
+    const customCopy = createElement('span', 'sem-appearance-control-copy');
+    customCopy.append(createElement('strong', '', t('appearanceCustomColor')));
+    const customColor = createElement('input', 'sem-color-input');
+    customColor.type = 'color';
+    customColor.value = settings.customColor;
+    customColor.setAttribute('aria-label', t('appearanceCustomColor'));
+    customColor.addEventListener('input', () => {
+        settings.customColor = normalizeHexColor(customColor.value);
+        settings.theme = 'custom';
+        const customSwatch = themeGrid.querySelector('[data-sem-theme="custom"]');
+        customSwatch?.style.setProperty('--sem-swatch-accent', settings.customColor);
+        customSwatch?.style.setProperty('--sem-swatch-tint', settings.customColor);
+        saveAppearanceSettings(settings);
+        applyAppearance(target, settings);
+        refreshThemeSelection();
+    });
+    customRow.append(customCopy, customColor);
+
+    const makeRangeControl = ({ label, hint, minimum, maximum, value, suffix, onInput }) => {
+        const row = createElement('label', 'sem-appearance-control');
+        const copy = createElement('span', 'sem-appearance-control-copy');
+        copy.append(createElement('strong', '', label), createElement('small', '', hint));
+        const inputWrap = createElement('span', 'sem-range-wrap');
+        const input = createElement('input', 'sem-range');
+        input.type = 'range';
+        input.min = String(minimum);
+        input.max = String(maximum);
+        input.value = String(value);
+        const output = createElement('output', 'sem-range-output', `${value}${suffix}`);
+        input.addEventListener('input', () => {
+            const nextValue = Number(input.value);
+            output.textContent = `${nextValue}${suffix}`;
+            onInput(nextValue);
+        });
+        inputWrap.append(input, output);
+        row.append(copy, inputWrap);
+        return row;
+    };
+
+    const glassControl = makeRangeControl({
+        label: t('appearanceGlass'),
+        hint: t('appearanceGlassHint'),
+        minimum: 50,
+        maximum: 96,
+        value: settings.glassOpacity,
+        suffix: '%',
+        onInput: value => {
+            settings.glassOpacity = value;
+            saveAppearanceSettings(settings);
+            applyAppearance(target, settings);
+        },
+    });
+    const fontControl = makeRangeControl({
+        label: t('appearanceFont'),
+        hint: t('appearanceFontHint'),
+        minimum: 85,
+        maximum: 125,
+        value: settings.fontScale,
+        suffix: '%',
+        onInput: value => {
+            settings.fontScale = value;
+            saveAppearanceSettings(settings);
+            applyAppearance(target, settings);
+        },
+    });
+
+    const footer = createElement('footer', 'sem-appearance-footer');
+    const resetButton = createIconButton('fa-arrow-rotate-left', t('appearanceReset'), 'sem-appearance-reset');
+    resetButton.addEventListener('click', () => {
+        Object.assign(settings, APPEARANCE_DEFAULTS);
+        saveAppearanceSettings(settings);
+        applyAppearance(target, settings);
+        customColor.value = settings.customColor;
+        const customSwatch = themeGrid.querySelector('[data-sem-theme="custom"]');
+        customSwatch?.style.setProperty('--sem-swatch-accent', settings.customColor);
+        customSwatch?.style.setProperty('--sem-swatch-tint', settings.customColor);
+        const ranges = panel.querySelectorAll('.sem-range');
+        const outputs = panel.querySelectorAll('.sem-range-output');
+        if (ranges[0]) ranges[0].value = String(settings.glassOpacity);
+        if (ranges[1]) ranges[1].value = String(settings.fontScale);
+        if (outputs[0]) outputs[0].textContent = `${settings.glassOpacity}%`;
+        if (outputs[1]) outputs[1].textContent = `${settings.fontScale}%`;
+        refreshThemeSelection();
+    });
+    footer.appendChild(resetButton);
+
+    const setOpen = open => {
+        panel.hidden = !open;
+        settingsButton.classList.toggle('is-active', open);
+        settingsButton.setAttribute('aria-expanded', String(open));
+        if (open) panel.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    };
+    settingsButton.setAttribute('aria-expanded', 'false');
+    settingsButton.addEventListener('click', () => setOpen(panel.hidden));
+    closeButton.addEventListener('click', () => setOpen(false));
+    panel.addEventListener('keydown', event => {
+        if (event.key === 'Escape') {
+            setOpen(false);
+            settingsButton.focus();
+        }
+    });
+
+    panel.append(header, colorGroup, customRow, glassControl, fontControl, footer);
+    refreshThemeSelection();
+    return panel;
 }
 
 function decorateNativeToolbar(toolbar) {
@@ -635,10 +924,11 @@ function enhanceManager(root) {
     const brandIcon = createElement('div', 'sem-brand-icon');
     brandIcon.innerHTML = '<i class="fa-solid fa-layer-group" aria-hidden="true"></i>';
     const brandCopy = createElement('div', 'sem-brand-copy');
-    brandCopy.append(
-        createElement('h2', '', t('title')),
-        createElement('p', '', t('subtitle')),
-    );
+    const titleRow = createElement('div', 'sem-title-row');
+    const settingsButton = createIconButton('fa-gear', t('appearanceOpen'), 'sem-settings-button');
+    settingsButton.querySelector('span')?.remove();
+    titleRow.append(createElement('h2', '', t('title')), settingsButton);
+    brandCopy.append(titleRow, createElement('p', '', t('subtitle')));
     brand.append(brandIcon, brandCopy);
 
     const metrics = createElement('div', 'sem-metrics');
@@ -652,6 +942,7 @@ function enhanceManager(root) {
     const updatesMetric = createMetric('is-updates', allBlocks.filter(hasUpdate).length, t('updates'));
     metrics.append(installedMetric, activeMetric, updatesMetric);
     hero.append(brand, metrics);
+    const appearancePanel = makeAppearancePanel(dialog || root, settingsButton);
 
     const commandBar = createElement('div', 'sem-command-bar');
     const searchWrap = createElement('label', 'sem-search');
@@ -715,7 +1006,7 @@ function enhanceManager(root) {
     });
 
     const modulesElement = [...root.children].find(child => {
-        if ([hero, commandBar, filterBar, selectionBar, builtInSection.section, externalSection.section].includes(child)) return false;
+        if ([hero, appearancePanel, commandBar, filterBar, selectionBar, builtInSection.section, externalSection.section].includes(child)) return false;
         return child.querySelector?.('h3') && !child.querySelector('.extension_block');
     });
     if (modulesElement) {
@@ -725,7 +1016,7 @@ function enhanceManager(root) {
     }
 
     const errorBlocks = [...root.children].filter(child => child.classList.contains('info-block'));
-    root.prepend(hero, commandBar, filterBar, selectionBar);
+    root.prepend(hero, appearancePanel, commandBar, filterBar, selectionBar);
     root.append(...errorBlocks, builtInSection.section, externalSection.section);
     if (modulesElement) root.appendChild(modulesElement);
     root.appendChild(profileInput);
