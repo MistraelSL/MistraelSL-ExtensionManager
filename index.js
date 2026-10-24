@@ -3,7 +3,6 @@ import {
     disableExtension,
     enableExtension,
     findExtension,
-    getExtensionManifest,
     installExtension,
 } from '../../../extensions.js';
 
@@ -62,7 +61,7 @@ const APPEARANCE_THEMES = Object.freeze({
 const SELF_FOLDER = decodeURIComponent(new URL('.', import.meta.url).pathname)
     .split('/')
     .filter(Boolean)
-    .at(-1) || '';
+    .slice(-1)[0] || '';
 
 const I18N = {
     en: {
@@ -91,6 +90,8 @@ const I18N = {
         enableSelected: 'Enable',
         disableSelected: 'Disable',
         deleteSelected: 'Delete',
+        togglePartial: 'States updated: {success}; failed: {failed}.',
+        toggleFailed: 'Could not change the selected extension states.',
         enabledStatus: 'Enabled',
         disabledStatus: 'Disabled',
         missingStatus: 'Unavailable',
@@ -110,7 +111,7 @@ const I18N = {
         profileExported: 'Backup saved: {count} extensions.',
         profileExportPartial: 'Backup saved, but {count} extensions have no restorable repository URL.',
         profileImportTitle: 'Restore extensions',
-        profileImportHint: 'Review the repositories before installation. The backup contains no extension settings, API keys, or local paths.',
+        profileImportHint: 'Review the repositories, branches, and installation scopes. Restore installs the current state of each branch, not a historical snapshot. The backup contains no extension settings, API keys, or local paths.',
         profileReady: 'Ready to install',
         profileInstalled: 'Already installed',
         profileUnavailable: 'No repository URL',
@@ -122,9 +123,15 @@ const I18N = {
         profileImported: 'Restore complete: installed {installed}, states updated {configured}.',
         profileImportPartial: 'Restore finished with errors: {failed}.',
         profileInvalid: 'This is not a valid MistraelSL extension backup.',
+        profileInvalidRepository: 'The backup contains an invalid repository URL. Only HTTPS links are allowed.',
+        profileBranch: 'Branch: {branch}',
+        profileDefaultBranch: 'default',
+        profileGlobal: 'Global installation',
+        profileLocal: 'Local installation',
         profileTooLarge: 'The backup file is too large.',
         profileNothingSelected: 'Select at least one extension to restore.',
         profileReadFailed: 'Could not read the extension backup.',
+        profileExportFailed: 'Could not create or save the extension backup.',
         appearanceOpen: 'Manager appearance',
         appearanceTitle: 'Appearance',
         appearanceHint: 'These settings affect only this manager.',
@@ -172,6 +179,8 @@ const I18N = {
         enableSelected: 'Включить',
         disableSelected: 'Выключить',
         deleteSelected: 'Удалить',
+        togglePartial: 'Состояний изменено: {success}; ошибок: {failed}.',
+        toggleFailed: 'Не удалось изменить состояние выбранных расширений.',
         enabledStatus: 'Включено',
         disabledStatus: 'Выключено',
         missingStatus: 'Недоступно',
@@ -191,7 +200,7 @@ const I18N = {
         profileExported: 'Профиль сохранён. Расширений: {count}.',
         profileExportPartial: 'Профиль сохранён, но у расширений без ссылки на репозиторий ({count}) автоматическое восстановление недоступно.',
         profileImportTitle: 'Восстановление расширений',
-        profileImportHint: 'Проверьте репозитории перед установкой. В профиле нет настроек расширений, API-ключей и локальных путей.',
+        profileImportHint: 'Проверьте репозитории, ветки и область установки. Восстанавливается текущее состояние ветки, а не прошлый снимок. В профиле нет настроек расширений, API-ключей и локальных путей.',
         profileReady: 'Готово к установке',
         profileInstalled: 'Уже установлено',
         profileUnavailable: 'Нет ссылки на репозиторий',
@@ -203,9 +212,15 @@ const I18N = {
         profileImported: 'Восстановление завершено: установлено {installed}, состояний обновлено {configured}.',
         profileImportPartial: 'Восстановление завершено с ошибками: {failed}.',
         profileInvalid: 'Это не профиль расширений MistraelSL или файл повреждён.',
+        profileInvalidRepository: 'В профиле есть неверный адрес репозитория. Разрешены только HTTPS-ссылки.',
+        profileBranch: 'Ветка: {branch}',
+        profileDefaultBranch: 'по умолчанию',
+        profileGlobal: 'Глобальная установка',
+        profileLocal: 'Локальная установка',
         profileTooLarge: 'Файл резервной копии слишком большой.',
         profileNothingSelected: 'Выберите хотя бы одно расширение.',
         profileReadFailed: 'Не удалось прочитать резервную копию расширений.',
+        profileExportFailed: 'Не удалось создать или сохранить резервную копию расширений.',
         appearanceOpen: 'Внешний вид менеджера',
         appearanceTitle: 'Внешний вид',
         appearanceHint: 'Эти настройки меняют только окно менеджера.',
@@ -271,7 +286,7 @@ function createIconButton(icon, label, className = '') {
 }
 
 function normalizeExtensionName(name) {
-    return String(name || '').replace(/^third-party\/?/i, '').replace(/^\/+/, '').replace(/\/+$/, '');
+    return String(name || '').replace(/^third-party(?:\/|$)/i, '').replace(/^\/+/, '').replace(/\/+$/, '');
 }
 
 function getDisplayName(block) {
@@ -385,6 +400,14 @@ function applyAppearance(target, settings) {
 function makeAppearancePanel(target, settingsButton) {
     const settings = getAppearanceSettings();
     applyAppearance(target, settings);
+    let appearanceFrame = 0;
+    const scheduleApplyAppearance = () => {
+        if (appearanceFrame) return;
+        appearanceFrame = requestAnimationFrame(() => {
+            appearanceFrame = 0;
+            applyAppearance(target, settings);
+        });
+    };
 
     const panel = createElement('section', 'sem-appearance-panel');
     panel.hidden = true;
@@ -425,6 +448,7 @@ function makeAppearancePanel(target, settingsButton) {
             const active = button.dataset.semTheme === settings.theme;
             button.classList.toggle('is-active', active);
             button.setAttribute('aria-checked', String(active));
+            button.tabIndex = active ? 0 : -1;
         });
     };
 
@@ -460,6 +484,27 @@ function makeAppearancePanel(target, settingsButton) {
             applyAppearance(target, settings);
             refreshThemeSelection();
         });
+        swatch.addEventListener('keydown', event => {
+            const themeButtons = [...themeGrid.querySelectorAll('[data-sem-theme]')];
+            const currentIndex = themeButtons.indexOf(swatch);
+            let nextIndex;
+            if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+                nextIndex = (currentIndex + 1) % themeButtons.length;
+            } else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+                nextIndex = (currentIndex - 1 + themeButtons.length) % themeButtons.length;
+            } else if (event.key === 'Home') {
+                nextIndex = 0;
+            } else if (event.key === 'End') {
+                nextIndex = themeButtons.length - 1;
+            } else {
+                return;
+            }
+
+            event.preventDefault();
+            const nextButton = themeButtons[nextIndex];
+            nextButton.click();
+            nextButton.focus();
+        });
         themeGrid.appendChild(swatch);
     });
     colorGroup.appendChild(themeGrid);
@@ -477,10 +522,10 @@ function makeAppearancePanel(target, settingsButton) {
         const customSwatch = themeGrid.querySelector('[data-sem-theme="custom"]');
         customSwatch?.style.setProperty('--sem-swatch-accent', settings.customColor);
         customSwatch?.style.setProperty('--sem-swatch-tint', `color-mix(in srgb, ${settings.customColor} 17%, #171522)`);
-        saveAppearanceSettings(settings);
-        applyAppearance(target, settings);
+        scheduleApplyAppearance();
         refreshThemeSelection();
     });
+    customColor.addEventListener('change', () => saveAppearanceSettings(settings));
     customRow.append(customCopy, customColor);
 
     const makeRangeControl = ({ label, hint, minimum, maximum, value, suffix, onInput }) => {
@@ -499,6 +544,7 @@ function makeAppearancePanel(target, settingsButton) {
             output.textContent = `${nextValue}${suffix}`;
             onInput(nextValue);
         });
+        input.addEventListener('change', () => saveAppearanceSettings(settings));
         inputWrap.append(input, output);
         row.append(copy, inputWrap);
         return row;
@@ -513,8 +559,7 @@ function makeAppearancePanel(target, settingsButton) {
         suffix: '%',
         onInput: value => {
             settings.glassOpacity = value;
-            saveAppearanceSettings(settings);
-            applyAppearance(target, settings);
+            scheduleApplyAppearance();
         },
     });
     const fontControl = makeRangeControl({
@@ -526,8 +571,7 @@ function makeAppearancePanel(target, settingsButton) {
         suffix: '%',
         onInput: value => {
             settings.fontScale = value;
-            saveAppearanceSettings(settings);
-            applyAppearance(target, settings);
+            scheduleApplyAppearance();
         },
     });
 
@@ -555,7 +599,10 @@ function makeAppearancePanel(target, settingsButton) {
         panel.hidden = !open;
         settingsButton.classList.toggle('is-active', open);
         settingsButton.setAttribute('aria-expanded', String(open));
-        if (open) panel.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        if (open) {
+            const reduceMotion = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+            panel.scrollIntoView({ block: 'nearest', behavior: reduceMotion ? 'auto' : 'smooth' });
+        }
     };
     settingsButton.setAttribute('aria-expanded', 'false');
     settingsButton.addEventListener('click', () => setOpen(panel.hidden));
@@ -730,7 +777,7 @@ function sanitizeRepositoryUrl(value) {
 
     try {
         const url = new URL(String(value));
-        if (!['http:', 'https:'].includes(url.protocol)) return '';
+        if (url.protocol !== 'https:') return '';
 
         // Git remotes can contain embedded credentials. They must never be exported.
         url.username = '';
@@ -760,7 +807,6 @@ async function getExtensionVersionDetails(block) {
     const data = await response.json();
     return {
         branch: typeof data.currentBranchName === 'string' ? data.currentBranchName : '',
-        commit: typeof data.currentCommitHash === 'string' ? data.currentCommitHash : '',
         repository: sanitizeRepositoryUrl(data.remoteUrl),
     };
 }
@@ -811,22 +857,44 @@ function parseProfile(rawText) {
     const seen = new Set();
     const extensions = [];
     for (const source of value.extensions) {
-        const id = normalizeExtensionName(source?.id).slice(0, 180);
-        if (!id || seen.has(id.toLocaleLowerCase())) continue;
-        seen.add(id.toLocaleLowerCase());
+        if (!source || typeof source !== 'object' || Array.isArray(source)
+            || typeof source.id !== 'string'
+            || ['displayName', 'repository', 'branch'].some(key => source[key] !== undefined && typeof source[key] !== 'string')
+            || (source.enabled !== undefined && typeof source.enabled !== 'boolean')
+            || (source.global !== undefined && typeof source.global !== 'boolean')) {
+            throw new Error(t('profileInvalid'));
+        }
+
+        const id = normalizeExtensionName(source.id);
+        const displayName = source.displayName || id;
+        const repositoryValue = source.repository || '';
+        const branch = source.branch || '';
+        const invalidId = !id || id.length > 180 || id === '.' || id === '..'
+            || id.includes('/') || id.includes('\\') || /[\u0000-\u001f\u007f]/.test(id);
+        const invalidBranch = branch.length > 180 || branch.startsWith('-') || /[\u0000-\u001f\u007f]/.test(branch);
+        if (invalidId || invalidBranch || displayName.length > 240) {
+            throw new Error(t('profileInvalid'));
+        }
+
+        const repository = sanitizeRepositoryUrl(repositoryValue);
+        if (repositoryValue && !repository) {
+            throw new Error(t('profileInvalidRepository'));
+        }
+
+        const deduplicationKey = id.toLocaleLowerCase();
+        if (seen.has(deduplicationKey)) throw new Error(t('profileInvalid'));
+        seen.add(deduplicationKey);
 
         extensions.push({
             id,
-            displayName: String(source?.displayName || id).slice(0, 240),
-            repository: sanitizeRepositoryUrl(source?.repository),
-            branch: String(source?.branch || '').slice(0, 180),
-            commit: String(source?.commit || '').slice(0, 180),
-            enabled: source?.enabled !== false,
-            global: source?.global === true,
+            displayName,
+            repository,
+            branch,
+            enabled: source.enabled ?? true,
+            global: source.global ?? false,
         });
     }
 
-    if (!extensions.length) throw new Error(t('profileInvalid'));
     return extensions;
 }
 
@@ -842,6 +910,7 @@ function showImportPreview(dialog, extensions) {
         modal.setAttribute('role', 'dialog');
         modal.setAttribute('aria-modal', 'true');
         modal.setAttribute('aria-labelledby', 'sem-profile-title');
+        modal.tabIndex = -1;
 
         const header = createElement('header', 'sem-profile-modal-header');
         const headerCopy = createElement('div', 'sem-profile-modal-copy');
@@ -871,9 +940,16 @@ function showImportPreview(dialog, extensions) {
 
             const marker = createElement('span', 'sem-profile-check-visual');
             const copy = createElement('span', 'sem-profile-row-copy');
+            const repositoryText = item.repository || item.id;
+            const repositoryLine = createElement('small', 'sem-profile-repository', repositoryText);
+            repositoryLine.title = repositoryText;
+            const branch = item.branch || t('profileDefaultBranch');
+            const scope = t(item.global ? 'profileGlobal' : 'profileLocal');
+            const detailsLine = createElement('small', 'sem-profile-row-meta', `${t('profileBranch', { branch })} · ${scope}`);
             copy.append(
                 createElement('strong', '', item.displayName),
-                createElement('small', '', item.repository || item.id),
+                repositoryLine,
+                detailsLine,
             );
 
             let stateKey = 'profileReady';
@@ -901,20 +977,62 @@ function showImportPreview(dialog, extensions) {
         modal.append(header, list, footer);
         overlay.appendChild(modal);
 
+        let focusableElements = [];
+        const updateFocusableElements = () => {
+            focusableElements = [...modal.querySelectorAll(
+                'button:not([disabled]), input:not([disabled]), [href], [tabindex]:not([tabindex="-1"])',
+            )].filter(element => element.getClientRects().length > 0);
+        };
         const updateCount = () => {
+            const wasDisabled = installButton.disabled;
             const count = selectableInputs.filter(input => input.checked).length;
             selectedCount.textContent = t('profileSelected', { count });
             installButton.disabled = count === 0;
+            if (wasDisabled !== installButton.disabled) updateFocusableElements();
         };
 
+        const inertElements = [];
+        let finished = false;
         const finish = result => {
-            document.removeEventListener('keydown', onKeyDown);
+            if (finished) return;
+            finished = true;
+            document.removeEventListener('keydown', onKeyDown, true);
+            inertElements.forEach(([element, wasInert]) => {
+                element.inert = wasInert;
+            });
             overlay.remove();
+            if (!dialog.hasAttribute('tabindex')) dialog.setAttribute('tabindex', '-1');
+            dialog.focus();
             resolve(result);
         };
         const cancel = () => finish(null);
         const onKeyDown = event => {
-            if (event.key === 'Escape') cancel();
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                event.stopPropagation();
+                cancel();
+                return;
+            }
+            if (event.key !== 'Tab') return;
+
+            const focusable = focusableElements;
+            if (!focusable.length) {
+                event.preventDefault();
+                modal.focus();
+                return;
+            }
+
+            const first = focusable[0];
+            const last = focusable[focusable.length - 1];
+            const active = document.activeElement;
+            const focusIsOutside = !modal.contains(active) || active === modal;
+            if (event.shiftKey && (active === first || focusIsOutside)) {
+                event.preventDefault();
+                last.focus();
+            } else if (!event.shiftKey && (active === last || focusIsOutside)) {
+                event.preventDefault();
+                first.focus();
+            }
         };
 
         list.addEventListener('change', updateCount);
@@ -933,21 +1051,23 @@ function showImportPreview(dialog, extensions) {
         overlay.addEventListener('click', event => {
             if (event.target === overlay) cancel();
         });
-        document.addEventListener('keydown', onKeyDown);
+        document.addEventListener('keydown', onKeyDown, true);
         dialog.appendChild(overlay);
+        for (const element of [...dialog.children]) {
+            if (element === overlay || !(element instanceof HTMLElement)) continue;
+            inertElements.push([element, element.inert]);
+            element.inert = true;
+        }
         updateCount();
+        updateFocusableElements();
         closeButton.focus();
     });
 }
 
 function enhanceManager(root) {
     if (!(root instanceof HTMLElement) || root.dataset.semEnhanced === 'true') return;
-    root.dataset.semEnhanced = 'true';
-    root.classList.add('sem-root');
 
     const dialog = root.closest('.popup');
-    dialog?.classList.add('sem-dialog');
-
     const allBlocks = [...root.querySelectorAll('.extension_block')];
     const externalBlocks = allBlocks.filter(block => block.querySelector('.btn_delete'));
     const builtInBlocks = allBlocks.filter(block => !block.querySelector('.btn_delete'));
@@ -961,6 +1081,10 @@ function enhanceManager(root) {
         console.warn(`[${EXTENSION_NAME}] Could not identify the native extension sections.`);
         return;
     }
+
+    root.dataset.semEnhanced = 'true';
+    root.classList.add('sem-root');
+    dialog?.classList.add('sem-dialog');
 
     const externalHeader = externalContainer.querySelector(':scope > div:first-child');
     const externalActions = externalHeader?.querySelector('.third_party_toolbar') || null;
@@ -1079,6 +1203,7 @@ function enhanceManager(root) {
 
     let activeFilter = 'all';
     let selectionMode = false;
+    let operationBusy = false;
     const noResults = createElement('div', 'sem-empty', t('noResults'));
     noResults.hidden = true;
     root.insertBefore(noResults, modulesElement || null);
@@ -1090,11 +1215,22 @@ function enhanceManager(root) {
         selectionBar.hidden = !selectionMode;
         selectionCount.textContent = t('selectionSummary', { count: selected.length });
         root.classList.toggle('has-selection', selected.length > 0);
-        if (!selectionBar.classList.contains('is-busy')) {
+        selectionBar.querySelectorAll('button').forEach(button => {
+            button.disabled = operationBusy;
+        });
+        if (!operationBusy) {
             enableButton.disabled = selected.length === 0;
             disableButton.disabled = selected.length === 0;
             deleteButton.disabled = selected.length === 0;
         }
+    };
+
+    const setOperationBusy = busy => {
+        operationBusy = Boolean(busy);
+        exportButton.disabled = operationBusy;
+        importButton.disabled = operationBusy;
+        quickSelectButton.disabled = operationBusy;
+        updateSelection();
     };
 
     const setSelectionMode = enabled => {
@@ -1119,13 +1255,18 @@ function enhanceManager(root) {
         updatesMetric.querySelector('strong').textContent = String(allBlocks.filter(block => block.isConnected && hasUpdate(block)).length);
     };
 
-    const applyFilters = () => {
+    const searchTextByBlock = new Map(allBlocks.map(block => [
+        block,
+        `${getDisplayName(block)} ${block.dataset.name || ''}`.toLocaleLowerCase(),
+    ]));
+
+    const applyFilters = (refreshMetrics = true) => {
         const query = search.value.trim().toLocaleLowerCase();
         let visibleCount = 0;
 
         for (const block of allBlocks) {
             if (!block.isConnected) continue;
-            const matchesSearch = !query || `${getDisplayName(block)} ${block.dataset.name || ''}`.toLocaleLowerCase().includes(query);
+            const matchesSearch = !query || (searchTextByBlock.get(block) || '').includes(query);
             const matchesFilter = activeFilter === 'all'
                 || (activeFilter === 'enabled' && isEnabled(block))
                 || (activeFilter === 'disabled' && !isEnabled(block))
@@ -1138,7 +1279,7 @@ function enhanceManager(root) {
         builtInSection.counter.textContent = String(builtInBlocks.filter(block => block.isConnected && !block.hidden).length);
         externalSection.counter.textContent = String(externalBlocks.filter(block => block.isConnected && !block.hidden).length);
         noResults.hidden = visibleCount !== 0;
-        updateMetrics();
+        if (refreshMetrics) updateMetrics();
     };
 
     filterBar.addEventListener('click', event => {
@@ -1154,17 +1295,24 @@ function enhanceManager(root) {
             filter.classList.toggle('is-active', active);
             filter.setAttribute('aria-pressed', String(active));
         });
-        applyFilters();
+        applyFilters(false);
     });
-    search.addEventListener('input', applyFilters);
+    search.addEventListener('input', () => applyFilters(false));
 
-    externalBlocks.forEach(block => {
-        block.querySelector('.sem-select')?.addEventListener('change', updateSelection);
+    const refreshBlockState = block => {
+        const oldStatus = block.querySelector('.sem-status');
+        oldStatus?.remove();
+        block.classList.remove('sem-card');
+        decorateBlock(block, externalBlocks.includes(block));
+    };
+
+    allBlocks.forEach(block => {
+        const allowSelection = externalBlocks.includes(block);
+        if (allowSelection) {
+            block.querySelector('.sem-select')?.addEventListener('change', updateSelection);
+        }
         getNativeToggle(block)?.addEventListener('change', () => {
-            const oldStatus = block.querySelector('.sem-status');
-            oldStatus?.remove();
-            block.classList.remove('sem-card');
-            decorateBlock(block, true);
+            refreshBlockState(block);
             applyFilters();
         });
     });
@@ -1178,22 +1326,77 @@ function enhanceManager(root) {
     });
     cancelButton.addEventListener('click', () => setSelectionMode(false));
 
-    const toggleSelected = enable => {
-        getSelectedBlocks().forEach(block => {
-            const toggle = getNativeToggle(block);
-            if (toggle && !toggle.disabled && Boolean(toggle.checked) !== enable) toggle.click();
-        });
-        applyFilters();
+    const toggleSelected = async enable => {
+        if (operationBusy) return;
+        const selected = getSelectedBlocks();
+        if (!selected.length) return;
+
+        setOperationBusy(true);
+        let success = 0;
+        let failed = 0;
+        try {
+            for (const block of selected) {
+                const toggle = getNativeToggle(block);
+                if (!toggle || toggle.disabled || Boolean(toggle.checked) === enable) continue;
+
+                toggle.disabled = true;
+                try {
+                    const current = findExtension(toggle.dataset.name || normalizeExtensionName(block.dataset.name));
+                    const extensionName = current?.name || String(toggle.dataset.name || '');
+                    if (!extensionName) throw new Error('Missing extension name');
+                    if (enable) {
+                        await enableExtension(extensionName, false);
+                    } else {
+                        await disableExtension(extensionName, false);
+                    }
+                    toggle.checked = enable;
+                    toggle.classList.toggle('toggle_enable', !enable);
+                    toggle.classList.toggle('toggle_disable', enable);
+                    toggle.classList.toggle('checkbox_disabled', !enable);
+                    success += 1;
+                } catch (error) {
+                    failed += 1;
+                    console.error(`[${EXTENSION_NAME}] Failed to toggle ${block.dataset.name}:`, error);
+                } finally {
+                    toggle.disabled = false;
+                    refreshBlockState(block);
+                }
+            }
+        } finally {
+            applyFilters();
+            setOperationBusy(false);
+        }
+
+        if (failed > 0 && success > 0) {
+            globalThis.toastr?.warning?.(t('togglePartial', { success, failed }));
+        } else if (failed > 0) {
+            globalThis.toastr?.error?.(t('toggleFailed'));
+        }
     };
     enableButton.addEventListener('click', () => toggleSelected(true));
     disableButton.addEventListener('click', () => toggleSelected(false));
 
     deleteButton.addEventListener('click', async () => {
+        if (operationBusy) return;
         const selected = getSelectedBlocks();
-        if (!selected.length || !(await confirmBulkDelete(selected))) return;
+        if (!selected.length) return;
+
+        setOperationBusy(true);
+        let confirmed;
+        try {
+            confirmed = await confirmBulkDelete(selected);
+        } catch (error) {
+            console.error(`[${EXTENSION_NAME}] Bulk delete confirmation failed:`, error);
+            globalThis.toastr?.error?.(t('deleteFailed'));
+            setOperationBusy(false);
+            return;
+        }
+        if (!confirmed) {
+            setOperationBusy(false);
+            return;
+        }
 
         selectionBar.classList.add('is-busy');
-        selectionBar.querySelectorAll('button').forEach(button => button.disabled = true);
         let success = 0;
         let failed = 0;
 
@@ -1227,38 +1430,35 @@ function enhanceManager(root) {
             window.setTimeout(() => location.reload(), 1400);
         } else {
             selectionBar.classList.remove('is-busy');
-            selectionBar.querySelectorAll('button').forEach(button => button.disabled = false);
+            setOperationBusy(false);
         }
     });
 
     exportButton.addEventListener('click', async () => {
-        exportButton.disabled = true;
-        importButton.disabled = true;
+        if (operationBusy) return;
+        const blocksToExport = externalBlocks.filter(block => block.isConnected);
+        setOperationBusy(true);
         let completed = 0;
 
         try {
-            const extensions = await mapWithConcurrency(externalBlocks, 3, async block => {
-                let versionDetails = { branch: '', commit: '', repository: '' };
+            const extensions = await mapWithConcurrency(blocksToExport, 3, async block => {
+                let versionDetails = { branch: '', repository: '' };
                 try {
                     versionDetails = await getExtensionVersionDetails(block);
                 } catch (error) {
                     console.warn(`[${EXTENSION_NAME}] Could not read repository information for ${block.dataset.name}:`, error);
                 } finally {
                     completed += 1;
-                    setButtonText(exportButton, t('profileExporting', { current: completed, total: externalBlocks.length }));
+                    setButtonText(exportButton, t('profileExporting', { current: completed, total: blocksToExport.length }));
                 }
 
-                const manifest = getExtensionManifest(String(block.dataset.name || '')) || {};
                 return {
                     id: normalizeExtensionName(block.dataset.name),
                     displayName: getDisplayName(block),
                     repository: versionDetails.repository,
                     branch: versionDetails.branch,
-                    commit: versionDetails.commit,
                     enabled: isEnabled(block),
                     global: isGlobalExtensionBlock(block),
-                    manifestVersion: typeof manifest.version === 'string' ? manifest.version : '',
-                    loadingOrder: Number.isFinite(Number(manifest.loading_order)) ? Number(manifest.loading_order) : null,
                 };
             });
 
@@ -1281,20 +1481,21 @@ function enhanceManager(root) {
             }
         } catch (error) {
             console.error(`[${EXTENSION_NAME}] Profile export failed:`, error);
-            globalThis.toastr?.error?.(t('profileReadFailed'));
+            globalThis.toastr?.error?.(t('profileExportFailed'));
         } finally {
-            exportButton.disabled = false;
-            importButton.disabled = false;
             setButtonText(exportButton, t('exportProfile'));
+            setOperationBusy(false);
         }
     });
 
     importButton.addEventListener('click', () => {
+        if (operationBusy) return;
         profileInput.value = '';
         profileInput.click();
     });
 
     profileInput.addEventListener('change', async () => {
+        if (operationBusy) return;
         const file = profileInput.files?.[0];
         if (!file) return;
         if (file.size > MAX_PROFILE_BYTES) {
@@ -1302,66 +1503,73 @@ function enhanceManager(root) {
             return;
         }
 
+        setOperationBusy(true);
         let extensions;
         try {
             extensions = parseProfile(await file.text());
         } catch (error) {
             console.error(`[${EXTENSION_NAME}] Profile import validation failed:`, error);
             globalThis.toastr?.error?.(error instanceof Error ? error.message : t('profileInvalid'));
+            setOperationBusy(false);
+            importButton.focus();
             return;
         }
 
-        const selected = await showImportPreview(dialog || root, extensions);
-        if (!selected?.length) return;
+        let reloadAfterImport = false;
+        try {
+            const selected = await showImportPreview(dialog || root, extensions);
+            if (!selected?.length) return;
 
-        exportButton.disabled = true;
-        importButton.disabled = true;
-        let installed = 0;
-        let configured = 0;
-        let failed = 0;
+            let installed = 0;
+            let configured = 0;
+            let failed = 0;
 
-        for (let index = 0; index < selected.length; index += 1) {
-            const item = selected[index];
-            setButtonText(importButton, t('profileImporting', { current: index + 1, total: selected.length }));
+            for (let index = 0; index < selected.length; index += 1) {
+                const item = selected[index];
+                setButtonText(importButton, t('profileImporting', { current: index + 1, total: selected.length }));
 
-            try {
-                let current = findExtension(item.id);
-                if (!current) {
-                    if (!item.repository) throw new Error('Missing repository URL');
-                    const success = await installExtension(item.repository, item.global, item.branch);
-                    if (!success) throw new Error('Native extension installation was cancelled or failed');
-                    installed += 1;
-                    current = findExtension(item.id);
-                }
-
-                const extensionName = current?.name || `third-party/${item.id}`;
-                const currentlyEnabled = current?.enabled ?? true;
-                if (item.enabled !== currentlyEnabled) {
-                    if (item.enabled) {
-                        await enableExtension(extensionName, false);
-                    } else {
-                        await disableExtension(extensionName, false);
+                try {
+                    let current = findExtension(item.id);
+                    if (!current) {
+                        if (!item.repository) throw new Error('Missing repository URL');
+                        const success = await installExtension(item.repository, item.global, item.branch);
+                        if (!success) throw new Error('Native extension installation was cancelled or failed');
+                        installed += 1;
+                        current = findExtension(item.id);
                     }
-                    configured += 1;
+
+                    const extensionName = current?.name || `third-party/${item.id}`;
+                    const currentlyEnabled = current?.enabled ?? true;
+                    if (item.enabled !== currentlyEnabled) {
+                        if (item.enabled) {
+                            await enableExtension(extensionName, false);
+                        } else {
+                            await disableExtension(extensionName, false);
+                        }
+                        configured += 1;
+                    }
+                } catch (error) {
+                    failed += 1;
+                    console.error(`[${EXTENSION_NAME}] Failed to restore ${item.id}:`, error);
                 }
-            } catch (error) {
-                failed += 1;
-                console.error(`[${EXTENSION_NAME}] Failed to restore ${item.id}:`, error);
             }
-        }
 
-        exportButton.disabled = false;
-        importButton.disabled = false;
-        setButtonText(importButton, t('importProfile'));
+            if (failed > 0) {
+                globalThis.toastr?.warning?.(t('profileImportPartial', { failed }));
+            } else {
+                globalThis.toastr?.success?.(t('profileImported', { installed, configured }));
+            }
 
-        if (failed > 0) {
-            globalThis.toastr?.warning?.(t('profileImportPartial', { failed }));
-        } else {
-            globalThis.toastr?.success?.(t('profileImported', { installed, configured }));
-        }
-
-        if (installed > 0 || configured > 0) {
-            window.setTimeout(() => location.reload(), 1600);
+            if (installed > 0 || configured > 0) {
+                reloadAfterImport = true;
+                window.setTimeout(() => location.reload(), 1600);
+            }
+        } finally {
+            setButtonText(importButton, t('importProfile'));
+            if (!reloadAfterImport) {
+                setOperationBusy(false);
+                importButton.focus();
+            }
         }
     });
 
@@ -1384,17 +1592,46 @@ function enhanceManager(root) {
 }
 
 function scanForManagers(node = document) {
-    if (node instanceof Element && node.matches(ROOT_SELECTOR)) enhanceManager(node);
+    if (node instanceof Element) {
+        const manager = node.closest(ROOT_SELECTOR);
+        if (manager) enhanceManager(manager);
+    }
     node.querySelectorAll?.(ROOT_SELECTOR).forEach(enhanceManager);
 }
 
 function init() {
     scanForManagers();
+    const pendingScanRoots = new Set();
+    let scanQueued = false;
+    const queueManagerScan = node => {
+        if (!(node instanceof Element)) return;
+        const containingManager = node.closest(ROOT_SELECTOR);
+        if (containingManager?.dataset.semEnhanced === 'true') return;
+        if (!containingManager && node.children.length === 0) return;
+
+        for (const root of pendingScanRoots) {
+            if (root === node || root.contains(node)) return;
+        }
+        for (const root of pendingScanRoots) {
+            if (node.contains(root)) pendingScanRoots.delete(root);
+        }
+        pendingScanRoots.add(node);
+
+        if (scanQueued) return;
+        scanQueued = true;
+        requestAnimationFrame(() => {
+            const roots = [...pendingScanRoots];
+            pendingScanRoots.clear();
+            scanQueued = false;
+            roots.forEach(root => {
+                if (root.isConnected) scanForManagers(root);
+            });
+        });
+    };
+
     const observer = new MutationObserver(mutations => {
         for (const mutation of mutations) {
-            mutation.addedNodes.forEach(node => {
-                if (node instanceof Element) scanForManagers(node);
-            });
+            mutation.addedNodes.forEach(queueManagerScan);
         }
     });
     observer.observe(document.body, { childList: true, subtree: true });

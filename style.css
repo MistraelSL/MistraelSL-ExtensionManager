@@ -21,7 +21,9 @@
     --sem-glass-strong: color-mix(in srgb, var(--sem-tint) var(--sem-glass-strong-opacity), transparent);
     --sem-surface: color-mix(in srgb, var(--sem-tint) var(--sem-surface-opacity), rgba(255, 255, 255, 0.05));
 
+    width: min(1120px, calc(100vw - 30px));
     width: min(1120px, calc(100dvw - 30px));
+    height: min(880px, calc(100vh - 30px));
     height: min(880px, calc(100dvh - 30px));
     max-width: none;
     max-height: none;
@@ -539,7 +541,7 @@
 .sem-command-bar {
     position: sticky;
     z-index: 4;
-    top: -22px;
+    top: 0;
     display: flex;
     align-items: center;
     gap: 10px;
@@ -674,6 +676,10 @@
 .sem-profile-overlay {
     position: absolute;
     z-index: 100;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
     inset: 0;
     display: grid;
     padding: 20px;
@@ -850,11 +856,16 @@
     gap: 4px;
 }
 
-.sem-profile-row-copy strong,
-.sem-profile-row-copy small {
+.sem-profile-row-copy strong {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+.sem-profile-row-copy small {
+    min-width: 0;
+    word-break: break-word;
+    overflow-wrap: anywhere;
 }
 
 .sem-profile-row-copy strong {
@@ -966,9 +977,10 @@
 .sem-selection-bar {
     position: sticky;
     z-index: 5;
-    top: 58px;
+    top: 64px;
     display: flex;
     min-height: 52px;
+    flex-wrap: wrap;
     margin-bottom: 14px;
     padding: 8px 10px 8px 15px;
     align-items: center;
@@ -1511,9 +1523,11 @@
     70% { transform: translateX(4px); }
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1100px) {
     .popup.sem-dialog {
+        width: calc(100vw - 18px);
         width: calc(100dvw - 18px);
+        height: calc(100vh - 18px);
         height: calc(100dvh - 18px);
         border-radius: 19px;
     }
@@ -1523,7 +1537,8 @@
     }
 
     .sem-command-bar {
-        top: -16px;
+        position: relative;
+        top: auto;
         flex-wrap: wrap;
     }
 
@@ -1549,7 +1564,8 @@
     }
 
     .sem-selection-bar {
-        top: 105px;
+        position: relative;
+        top: auto;
         flex-wrap: wrap;
     }
 
@@ -1627,8 +1643,14 @@
     }
 
     .sem-root .sem-profile-button {
-        min-width: 0;
-        padding-inline: 9px;
+        flex: 0 0 44px;
+        width: 44px;
+        min-width: 44px;
+        padding-inline: 0;
+    }
+
+    .sem-root .sem-profile-button span {
+        display: none;
     }
 
     .sem-profile-overlay {
@@ -1682,15 +1704,12 @@
 
     .sem-card .extension_actions {
         grid-column: 2 / -1;
+        flex-wrap: wrap;
         justify-content: flex-end;
     }
 
     .sem-card .extension_name {
         max-width: 52vw;
-    }
-
-    .sem-selection-bar {
-        top: 148px;
     }
 
     .sem-selection-bar .sem-button span {
@@ -1703,10 +1722,115 @@
     }
 }
 
+/* Keep the same theme on touch devices without expensive full-panel blur. */
+@media (max-width: 640px), (pointer: coarse) and (max-width: 1100px) {
+    .popup.sem-dialog,
+    .popup.sem-dialog::backdrop,
+    .popup.sem-dialog .popup-controls,
+    .sem-command-bar,
+    .sem-selection-bar,
+    .sem-appearance-panel,
+    .sem-profile-overlay {
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+    }
+
+    .popup.sem-dialog,
+    .popup.sem-dialog[data-sem-independent="true"] {
+        background: var(--sem-glass-strong) !important;
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+    }
+
+    .popup.sem-dialog .popup-content,
+    .sem-profile-list {
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .sem-command-bar {
+        background: var(--sem-glass-strong);
+    }
+
+    .sem-selection-bar {
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    }
+
+    .sem-section {
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.055);
+    }
+
+    .sem-profile-modal {
+        box-shadow: 0 16px 40px rgba(0, 0, 0, 0.42);
+    }
+
+    .sem-root .sem-native-action:hover,
+    .sem-root .sem-button:hover,
+    .sem-section-native-container .extension_block.sem-card:hover {
+        transform: none;
+    }
+}
+
+@media (pointer: coarse) {
+    .sem-root .sem-settings-button,
+    .sem-root .sem-appearance-close,
+    .sem-profile-close {
+        flex-basis: 44px;
+        width: 44px;
+        min-height: 44px;
+    }
+
+    .sem-root .sem-button,
+    .sem-filter,
+    .sem-profile-modal .sem-button,
+    .sem-section-actions .menu_button,
+    .sem-color-input {
+        min-height: 44px;
+    }
+
+    .sem-selection-bar .sem-button {
+        min-width: 44px;
+    }
+
+    .sem-card .extension_actions .menu_button {
+        width: 44px;
+        min-width: 44px;
+        height: 44px;
+        min-height: 44px;
+    }
+
+    .sem-card .extension_toggle {
+        width: 44px;
+        min-height: 44px;
+    }
+
+    .sem-card .extension_toggle input[type="checkbox"]::after {
+        content: '';
+        position: absolute;
+        top: -11px;
+        right: -3px;
+        bottom: -11px;
+        left: -3px;
+    }
+
+    .sem-select-wrap {
+        width: 44px;
+        height: 44px;
+    }
+}
+
+@media (pointer: coarse) and (min-width: 1101px) {
+    .sem-root .sem-native-action {
+        min-height: 44px;
+    }
+}
+
 @media (prefers-reduced-motion: reduce) {
     .sem-root *,
     .sem-root *::before,
-    .sem-root *::after {
+    .sem-root *::after,
+    .sem-profile-overlay,
+    .sem-profile-overlay *,
+    .sem-profile-overlay *::before,
+    .sem-profile-overlay *::after {
         scroll-behavior: auto !important;
         animation-duration: 0.01ms !important;
         animation-iteration-count: 1 !important;
@@ -1715,8 +1839,11 @@
 }
 
 body.no-blur .popup.sem-dialog,
+body.no-blur .popup.sem-dialog::backdrop,
 body.no-blur .sem-command-bar,
 body.no-blur .sem-selection-bar,
+body.no-blur .sem-appearance-panel,
+body.no-blur .sem-profile-overlay,
 body.no-blur .popup.sem-dialog .popup-controls {
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
@@ -1725,5 +1852,93 @@ body.no-blur .popup.sem-dialog .popup-controls {
 @supports not (backdrop-filter: blur(1px)) {
     .popup.sem-dialog {
         background: var(--SmartThemeBlurTintColor, #171522);
+    }
+}
+
+/* Solid fallback for Safari versions without color-mix(). */
+@supports not (color: color-mix(in srgb, #000000 50%, #ffffff)) {
+    .popup.sem-dialog,
+    .popup.sem-dialog[data-sem-independent="true"] {
+        --sem-accent: #9f86ff !important;
+        --sem-tint: #171522 !important;
+        --sem-secondary: rgba(92, 180, 255, 0.12) !important;
+        --sem-text: #f4f1ff !important;
+        --sem-muted: #aaa4b8 !important;
+        --sem-border: rgba(255, 255, 255, 0.24) !important;
+        --sem-glass: #171522 !important;
+        --sem-glass-strong: #211e2d !important;
+        --sem-surface: #282432 !important;
+        color: var(--sem-text) !important;
+        border-color: var(--sem-border) !important;
+        background: var(--sem-glass) !important;
+    }
+
+    .popup.sem-dialog .popup-controls,
+    .sem-appearance-panel,
+    .sem-selection-bar,
+    .sem-profile-modal {
+        border-color: var(--sem-border) !important;
+        background: var(--sem-glass-strong) !important;
+    }
+
+    .sem-section-native-container .extension_block.sem-card {
+        border-color: var(--sem-border) !important;
+        background: var(--sem-surface) !important;
+    }
+
+    .sem-root .sem-search-input {
+        color: var(--sem-text) !important;
+        border-color: var(--sem-border) !important;
+        background: #1c1926 !important;
+    }
+
+    .sem-root .sem-search-input:focus {
+        border-color: var(--sem-accent) !important;
+        box-shadow: 0 0 0 3px rgba(159, 134, 255, 0.16);
+    }
+
+    .sem-root .sem-native-action,
+    .sem-root .sem-button,
+    .sem-profile-modal .sem-button,
+    .sem-theme-swatch,
+    .sem-profile-row {
+        border-color: var(--sem-border);
+    }
+
+    .sem-root .sem-filter.is-active,
+    .sem-root .sem-settings-button.is-active {
+        color: var(--sem-accent) !important;
+        border-color: var(--sem-accent) !important;
+        background: var(--sem-surface) !important;
+    }
+
+    .sem-root .sem-native-action:focus-visible,
+    .sem-root .sem-button:focus-visible,
+    .sem-filter:focus-visible,
+    .sem-section-toggle:focus-visible,
+    .sem-profile-modal .sem-button:focus-visible,
+    .sem-card .extension_toggle input[type="checkbox"]:focus-visible {
+        outline: 2px solid var(--sem-accent);
+        outline-offset: 2px;
+    }
+
+    .sem-card .extension_toggle input[type="checkbox"]::before {
+        background: var(--sem-text);
+    }
+
+    .sem-card .extension_toggle input[type="checkbox"]:checked {
+        border-color: var(--sem-positive);
+        background: rgba(115, 217, 173, 0.35);
+    }
+
+    .sem-profile-check-visual,
+    .sem-select-visual {
+        border-color: var(--sem-muted);
+    }
+
+    .sem-profile-check:checked + .sem-profile-check-visual,
+    .sem-select:checked + .sem-select-visual {
+        border-color: var(--sem-accent);
+        background: var(--sem-accent);
     }
 }
